@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Stack Block 3D</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:linear-gradient(#ffb4b4,#ff9a9a);touch-action:manipulation;user-select:none;-webkit-user-select:none;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+canvas{display:block;width:100%;height:100%}
+#ui{position:fixed;inset:0;pointer-events:none;text-align:center;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.2)}
+#score{margin-top:calc(env(safe-area-inset-top,0px) + 70px);font-size:64px;font-weight:700;line-height:1}
+#msg{font-size:26px;font-weight:600;margin-top:10px;opacity:0;transition:opacity .25s}
+#best{position:absolute;right:16px;top:calc(env(safe-area-inset-top,0px) + 60px);font-size:16px;opacity:.9}
+#over{position:absolute;left:0;right:0;top:38%;display:none}
+#over b{font-size:34px;display:block}
+#over span{font-size:18px;opacity:.9}
+#topBtn,#muteBtn,#menuBtn{position:absolute;left:16px;pointer-events:auto;background:rgba(255,255,255,.3);color:#fff;border:0;border-radius:12px;padding:8px 14px;font-size:16px;font-weight:600}
+#menuBtn{top:calc(env(safe-area-inset-top,0px) + 56px)}
+#topBtn{top:calc(env(safe-area-inset-top,0px) + 106px)}
+#muteBtn{top:calc(env(safe-area-inset-top,0px) + 156px)}
+#top{position:fixed;inset:0;z-index:5;display:none;background:rgba(20,20,30,.88);color:#fff;padding:calc(env(safe-area-inset-top,0px) + 60px) 20px 20px;box-sizing:border-box;overflow:auto}
+#top h2{margin:0 0 16px;text-align:center}
+#top ol{padding:0;margin:0;list-style:none}
+#top li{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:10px;margin-bottom:6px;background:rgba(255,255,255,.08);font-size:18px}
+#top li.me{background:rgba(255,255,255,.28);font-weight:700}
+#top li span:nth-child(1){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#top p{text-align:center;opacity:.8}
+#closeTop{display:block;margin:18px auto 0;background:#fff;color:#222;border:0;border-radius:12px;padding:10px 28px;font-size:17px;font-weight:600}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <button id="menuBtn">☰ Меню</button>
+  <button id="topBtn">🏆 Топ</button>
+  <button id="muteBtn">🔊</button>
+  <div id="best"></div>
+  <div id="score">0</div>
+  <div id="msg"></div>
+  <div id="over"><b>Игра окончена</b><span>Нажми, чтобы сыграть ещё раз</span></div>
+</div>
+<div id="top"><h2>🏆 Топ 10</h2><ol id="list"></ol><p id="note"></p><p id="dbg" style="font-size:13px;opacity:.7"></p><button id="closeTop">Закрыть</button></div>
+<script>
+// ===== Настройки таблицы лидеров (Supabase) =====
+const SUPABASE_URL = "https://cwcrrqzguquuoabqdvvo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_W8LHPYxvc6Eya8QH97DHdA_mJRlCbsA";
+// ================================================
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+// ===== Настройки игры =====
+const START_SPEED = 5;     // начальная скорость блока (единиц в секунду)
+const SPEED_STEP = 0.1;    // прибавка скорости за каждый блок
+const MAX_SPEED = 10;      // максимальная скорость
+const BASE = 3;            // размер первого блока
+const RANGE = 3.8;         // на сколько блок отъезжает в сторону
+const ZOOM = 1.3;          // приближение камеры: больше значит блоки крупнее
+const TOL = 0.12;          // допуск для «идеально»
+
+const cv = document.getElementById('c');
+const $score = document.getElementById('score'), $msg = document.getElementById('msg'),
+      $best = document.getElementById('best'), $over = document.getElementById('over');
+let best = 0;
+try { best = +localStorage.getItem('best') || 0; } catch (e) {}
+
+// ---------- 3D-сцена ----------
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 0.62));
+const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(4, 10, 6); scene.add(sun);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
+function resize() {
+  const w = innerWidth, h = innerHeight, a = w / h, vs = Math.max(13, 12 / a) / ZOOM;
+  renderer.setSize(w, h, false);
+  camera.left = -vs * a / 2; camera.right = vs * a / 2; camera.top = vs / 2; camera.bottom = -vs / 2;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+const colorOf = i => new THREE.Color().setHSL(((i * 11) % 360) / 360, 0.72, 0.56);
+function setBg(i) {
+  const h = (i * 11 + 10) % 360;
+  document.body.style.background = `linear-gradient(hsl(${h} 85% 78%), hsl(${h} 75% 62%))`;
+}
+function makeBlock(w, d, x, y, z, color) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, 1, d), new THREE.MeshLambertMaterial({ color }));
+  m.position.set(x, y, z); scene.add(m); return m;
+}
+function disposeMesh(m) { scene.remove(m); m.geometry.dispose(); m.material.dispose(); }
+
+let stack = [], falling = [], cur = null, dir = 1, speed = START_SPEED;
+let score = 0, state = 'play', perfects = 0, overAt = 0, camX = 0, camY = 0, camZ = 0;
+
+function reset() {
+  stack.forEach(b => disposeMesh(b.mesh)); falling.forEach(f => disposeMesh(f.mesh)); if (cur) disposeMesh(cur.mesh);
+  stack = []; falling = []; cur = null;
+  stack.push({ x: 0, z: 0, w: BASE, d: BASE, mesh: makeBlock(BASE, BASE, 0, 0, 0, colorOf(0)) });
+  score = 0; camX = camY = camZ = 0; speed = START_SPEED; perfects = 0; state = 'play';
+  $over.style.display = 'none'; $score.textContent = 0; $best.textContent = 'Рекорд: ' + best;
+  setBg(0); spawn();
+}
+
+function spawn() {
+  const n = stack.length, t = stack[n - 1], axis = n % 2 ? 'x' : 'z';
+  cur = { axis, w: t.w, d: t.d, x: t.x, z: t.z, mesh: makeBlock(t.w, t.d, t.x, n, t.z, colorOf(n)) };
+  cur[axis] = t[axis] - RANGE; dir = 1;
+  cur.mesh.position.set(cur.x, n, cur.z);
+}
+
+function say(text) {
+  $msg.textContent = text; $msg.style.opacity = 1;
+  clearTimeout(say.t); say.t = setTimeout(() => $msg.style.opacity = 0, 600);
+}
+function haptic(kind) { try { tg && tg.HapticFeedback.impactOccurred(kind); } catch (e) {} }
+
+// ---------- Звуки (синтез, без файлов) ----------
+let actx = null, muted = false;
+try { muted = localStorage.getItem('muted') === '1'; } catch (e) {}
+function unlockAudio() {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+  } catch (e) {}
+}
+function tone(freq, dur, type, vol, delay, slideTo) {
+  if (muted || !actx) return;
+  const t = actx.currentTime + (delay || 0);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(vol || 0.2, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(actx.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function sfx(kind, n) {
+  if (kind === 'place') tone(220, 0.12, 'triangle', 0.35, 0, 110);
+  else if (kind === 'perfect') {
+    const f = 523 * Math.pow(2, Math.min(n || 1, 7) * 2 / 12);
+    tone(f, 0.16, 'sine', 0.25); tone(f * 1.5, 0.26, 'sine', 0.2, 0.07);
+  } else if (kind === 'over') {
+    tone(300, 0.5, 'sawtooth', 0.18, 0, 70); tone(150, 0.6, 'square', 0.1, 0.1, 50);
+  }
+}
+
+// ---------- Логика игры ----------
+function drop() {
+  const n = stack.length, t = stack[n - 1], a = cur.axis, dim = a === 'x' ? 'w' : 'd';
+  const p = cur[a], tp = t[a], delta = p - tp, ad = Math.abs(delta), s = cur[dim];
+  if (ad >= s) {                                        // промах: блок падает
+    falling.push({ mesh: cur.mesh, vy: 0 }); cur = null;
+    return gameOver();
+  }
+  if (ad < TOL) {                                       // идеально
+    cur[a] = tp; perfects++; score += 2; say('+1 Perfect'); haptic('medium'); sfx('perfect', perfects);
+  } else {
+    perfects = 0; score += 1; haptic('light'); sfx('place');
+    const mid = (p + tp) / 2, cutC = mid + Math.sign(delta) * s / 2;
+    const cw = a === 'x' ? ad : cur.w, cd = a === 'z' ? ad : cur.d;
+    falling.push({ mesh: makeBlock(cw, cd, a === 'x' ? cutC : cur.x, n, a === 'z' ? cutC : cur.z, colorOf(n)), vy: 0 });
+    cur[dim] = s - ad; cur[a] = mid;
+  }
+  disposeMesh(cur.mesh);
+  stack.push({ x: cur.x, z: cur.z, w: cur.w, d: cur.d, mesh: makeBlock(cur.w, cur.d, cur.x, n, cur.z, colorOf(n)) });
+  speed = Math.min(START_SPEED + stack.length * SPEED_STEP, MAX_SPEED);
+  $score.textContent = score; setBg(n); spawn();
+}
+
+function gameOver() {
+  state = 'over'; overAt = Date.now(); sfx('over');
+  if (score > best) { best = score; try { localStorage.setItem('best', best); } catch (e) {} }
+  $best.textContent = 'Рекорд: ' + best; $over.style.display = 'block'; submitScore(score);
+  try { tg && tg.HapticFeedback.notificationOccurred('error'); } catch (e) {}
+}
+
+addEventListener('pointerdown', e => {
+  unlockAudio();
+  if (e.target.closest('button,#top')) return;
+  e.preventDefault();
+  if (state === 'play') drop();
+  else if (Date.now() - overAt > 400) reset();
+});
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 0.05); last = now;
+  const t = stack[stack.length - 1];
+
+  if (state === 'play' && cur) {
+    cur[cur.axis] += dir * speed * dt;
+    if (cur[cur.axis] > t[cur.axis] + RANGE) dir = -1;
+    if (cur[cur.axis] < t[cur.axis] - RANGE) dir = 1;
+    cur.mesh.position[cur.axis] = cur[cur.axis];
+  }
+  falling.forEach(f => { f.vy -= 30 * dt; f.mesh.position.y += f.vy * dt; f.mesh.rotation.z += dt * 2; });
+  falling = falling.filter(f => { if (f.mesh.position.y < camY - 25) { disposeMesh(f.mesh); return false; } return true; });
+
+  // камера плавно следует за верхушкой башни
+  const k = Math.min(1, dt * 6);
+  camY += (Math.max(0, stack.length - 3) - camY) * k;
+  camX += (t.x - camX) * k; camZ += (t.z - camZ) * k;
+  const ly = camY + 1;
+  camera.position.set(camX + 10, ly + 10, camZ + 10);
+  camera.lookAt(camX, ly, camZ);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+// ---------- Таблица лидеров ----------
+const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+const myId = user ? user.id : null;
+const myName = user ? (user.username ? '@' + user.username : [user.first_name, user.last_name].filter(Boolean).join(' ')) : 'Гость';
+const lbReady = !SUPABASE_URL.startsWith('ВСТАВЬ') && !SUPABASE_KEY.startsWith('ВСТАВЬ');
+let dbg = '';
+
+async function sb(path, opts = {}) {
+  const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    ...opts,
+    headers: { apikey: SUPABASE_KEY, ...(SUPABASE_KEY.startsWith('eyJ') ? { Authorization: 'Bearer ' + SUPABASE_KEY } : {}),
+               'Content-Type': 'application/json', ...(opts.headers || {}) }
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const t = await r.text(); return t ? JSON.parse(t) : null;
+}
+
+async function submitScore(sc) {
+  if (!lbReady) { dbg = 'Ключ не вписан в index.html'; return; }
+  if (!myId) { dbg = 'Игра открыта не из Telegram, ник неизвестен'; return; }
+  if (sc <= 0) return;
+  try {
+    const old = await sb('scores?select=score&tg_id=eq.' + myId);
+    if (old.length && old[0].score >= sc) { dbg = 'Рекорд на сервере выше: ' + old[0].score; return; }
+    await sb('scores?on_conflict=tg_id', {
+      method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ tg_id: myId, name: myName, score: sc, updated_at: new Date().toISOString() })
+    });
+    dbg = 'Результат ' + sc + ' отправлен';
+  } catch (e) { dbg = 'Ошибка записи: ' + e.message; }
+}
+
+const $dbg = document.getElementById('dbg');
+const $top = document.getElementById('top'), $list = document.getElementById('list'), $note = document.getElementById('note');
+async function openTop() {
+  $top.style.display = 'block'; $list.innerHTML = ''; $note.textContent = 'Загрузка…'; $dbg.textContent = '';
+  if (!lbReady) { $note.textContent = 'Таблица лидеров ещё не настроена.'; return; }
+  try {
+    const rows = await sb('scores?select=tg_id,name,score&order=score.desc&limit=10');
+    $note.textContent = rows.length ? '' : 'Пока никого нет. Стань первым!';
+    rows.forEach((r, i) => {
+      const li = document.createElement('li'); if (r.tg_id === myId) li.className = 'me';
+      const a = document.createElement('span'), b = document.createElement('span');
+      a.textContent = (i + 1) + '. ' + r.name; b.textContent = r.score;
+      li.append(a, b); $list.append(li);
+    });
+    $dbg.textContent = dbg;
+  } catch (e) { $note.textContent = 'Не удалось загрузить топ.'; $dbg.textContent = 'Ошибка чтения: ' + e.message + (dbg ? ' | ' + dbg : ''); }
+}
+document.getElementById('topBtn').onclick = openTop;
+document.getElementById('closeTop').onclick = () => $top.style.display = 'none';
+
+const $mute = document.getElementById('muteBtn');
+const showMute = () => $mute.textContent = muted ? '🔇' : '🔊';
+$mute.onclick = () => {
+  muted = !muted; try { localStorage.setItem('muted', muted ? '1' : '0'); } catch (e) {}
+  showMute(); unlockAudio(); if (!muted) sfx('place');
+};
+showMute();
+
+const toMenu = () => { location.href = 'index.html'; };
+document.getElementById('menuBtn').onclick = toMenu;
+try { if (tg) { tg.BackButton.show(); tg.BackButton.onClick(toMenu); } } catch (e) {}
+
+reset(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>
