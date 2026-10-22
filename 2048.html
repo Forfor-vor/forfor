@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>2048</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+html,body{margin:0;height:100%;background:#12141f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+body{display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 56px) 16px calc(env(safe-area-inset-bottom,0px) + 14px);box-sizing:border-box}
+#top{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:420px;margin-bottom:12px}
+h1{margin:0;font-size:44px;font-weight:900;color:#7CFC00}
+.box{background:#1d2033;border-radius:12px;padding:6px 14px;text-align:center;min-width:64px;margin-left:8px}
+.box small{display:block;font-size:11px;opacity:.6;letter-spacing:1px}.box b{font-size:20px}
+#scores{display:flex}
+#bar{display:flex;gap:8px;margin-bottom:14px}
+.btn{border:0;border-radius:12px;background:#262b43;color:#fff;font-size:15px;font-weight:700;padding:10px 14px}
+.btn:disabled{opacity:.35}
+#board{position:relative;width:min(100%,420px);aspect-ratio:1;background:#1d2033;border-radius:14px;touch-action:none}
+.cell,.tile{position:absolute;border-radius:10px}
+.cell{background:#272c45}
+.tile{display:flex;align-items:center;justify-content:center;font-weight:900;transition:transform .12s ease-in-out;will-change:transform}
+.tile.new{animation:appear .18s ease-out}.tile.pop{animation:pop .16s ease-out}
+@keyframes appear{from{opacity:0;scale:.4}to{opacity:1;scale:1}}
+@keyframes pop{50%{scale:1.18}}
+#hint{margin-top:14px;font-size:13px;opacity:.5}
+.ov{position:fixed;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(10,12,22,.88);text-align:center;padding:24px}
+.ov h2{margin:0;font-size:34px}.big{background:#7CFC00;color:#111;font-size:18px;padding:12px 32px}
+</style>
+</head>
+<body>
+<div id="top"><h1>2048</h1><div id="scores"><div class="box"><small>СЧЁТ</small><b id="sc">0</b></div><div class="box"><small>РЕКОРД</small><b id="bs">0</b></div></div></div>
+<div id="bar"><button class="btn" id="undo">↩ Отмена</button><button class="btn" id="newg">🔄 Заново</button><button class="btn" id="menu">☰ Меню</button></div>
+<div id="board"></div>
+<div id="hint">Свайпай по полю или используй стрелки</div>
+<div class="ov" id="lose"><h2>Игра окончена</h2><p id="lscore"></p><button class="btn big" id="again">Новая игра</button></div>
+<div class="ov" id="win"><h2>🎉 2048!</h2><p>Ты собрал плитку 2048. Можно играть дальше!</p><button class="btn big" id="cont">Продолжить</button><button class="btn" id="again2">Новая игра</button></div>
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
+const $ = id => document.getElementById(id), board = $('board'), N = 4;
+let tiles = [], score = 0, best = 0, over = false, keepGoing = false, hist = null, nextId = 1, bs = 0, gap = 0, ts = 0;
+const els = new Map();
+try { best = +localStorage.getItem('best2048') || 0; } catch (e) {}
+const COL = { 2: '#33405c', 4: '#3b5a7a', 8: '#e0883a', 16: '#e4692f', 32: '#e44d3a', 64: '#d62d3a', 128: '#e6c34a', 256: '#e6bc34', 512: '#e6b41e', 1024: '#e6ab08', 2048: '#7CFC00' };
+const rnd = n => Math.floor(Math.random() * n);
+
+function layout() {                                   // размеры клеток зависят от размера поля
+  bs = board.clientWidth; gap = bs * .03; ts = (bs - gap * 5) / 4;
+  board.querySelectorAll('.cell').forEach(c => c.remove());
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const e = document.createElement('div'); e.className = 'cell'; e.style.cssText = `width:${ts}px;height:${ts}px;transform:translate(${gap + c * (ts + gap)}px,${gap + r * (ts + gap)}px)`; board.prepend(e); }
+  tiles.forEach(t => place(els.get(t.id), t));
+}
+function place(el, t) {
+  if (!el) return;
+  el.style.width = el.style.height = ts + 'px'; el.style.transform = `translate(${gap + t.c * (ts + gap)}px,${gap + t.r * (ts + gap)}px)`;
+  el.textContent = t.v; el.style.background = COL[t.v] || '#b36cff'; el.style.color = t.v === 2048 ? '#111' : t.v <= 4 ? '#cfd8ea' : '#fff';
+  el.style.fontSize = ts * (t.v < 100 ? .46 : t.v < 1000 ? .38 : .3) + 'px';
+}
+function render(dead) {
+  dead = dead || []; const live = new Set(tiles.map(t => t.id)), dying = new Set(dead.map(t => t.id));
+  els.forEach((el, id) => { if (!live.has(id) && !dying.has(id)) { el.remove(); els.delete(id); } });
+  for (const t of tiles.concat(dead)) {
+    let el = els.get(t.id);
+    if (!el) { el = document.createElement('div'); el.className = 'tile' + (t.isNew ? ' new' : ''); board.append(el); els.set(t.id, el); }
+    place(el, t); if (t.m) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+  }
+  dead.forEach(t => setTimeout(() => { const el = els.get(t.id); if (el) { el.remove(); els.delete(t.id); } }, 140));
+  $('sc').textContent = score; $('bs').textContent = best; $('undo').disabled = !hist;
+}
+const snapshot = () => JSON.stringify({ tiles: tiles.map(({ id, v, r, c }) => ({ id, v, r, c })), score });
+function restore(json) {
+  const d = JSON.parse(json); els.forEach(e => e.remove()); els.clear();
+  tiles = d.tiles; score = d.score; nextId = tiles.reduce((m, t) => Math.max(m, t.id), 0) + 1; render();
+}
+function spawn() {
+  const free = []; for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!tiles.some(t => t.r === r && t.c === c)) free.push([r, c]);
+  if (!free.length) return; const [r, c] = free[rnd(free.length)]; tiles.push({ id: nextId++, v: Math.random() < .9 ? 2 : 4, r, c, isNew: true });
+}
+function movable() {
+  if (tiles.length < N * N) return true;
+  const g = {}; tiles.forEach(t => g[t.r * N + t.c] = t.v);
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const v = g[r * N + c]; if ((c < N - 1 && g[r * N + c + 1] === v) || (r < N - 1 && g[(r + 1) * N + c] === v)) return true; }
+  return false;
+}
+function move(dir) {                                  // 0 влево, 1 вверх, 2 вправо, 3 вниз
+  if (over) return false;
+  const before = snapshot(); let moved = false, gained = 0; const dead = [];
+  tiles.forEach(t => { t.m = false; t.isNew = false; });
+  for (let i = 0; i < N; i++) {
+    const horiz = dir % 2 === 0, k = horiz ? 'c' : 'r';
+    const line = tiles.filter(t => horiz ? t.r === i : t.c === i).sort((a, b) => dir < 2 ? a[k] - b[k] : b[k] - a[k]);
+    let p = 0, last = null;
+    for (const t of line) {
+      if (last && last.v === t.v && !last.m) { last.v *= 2; last.m = true; gained += last.v; t.r = last.r; t.c = last.c; dead.push(t); moved = true; }
+      else {
+        const nr = horiz ? i : dir === 1 ? p : N - 1 - p, nc = horiz ? (dir === 0 ? p : N - 1 - p) : i;
+        if (t.r !== nr || t.c !== nc) moved = true; t.r = nr; t.c = nc; last = t; p++;
+      }
+    }
+  }
+  if (!moved) return false;
+  hist = before; score += gained; tiles = tiles.filter(t => !dead.includes(t)); spawn();
+  if (score > best) { best = score; try { localStorage.setItem('best2048', best); } catch (e) {} }
+  if (gained) try { tg && tg.HapticFeedback.impactOccurred('light'); } catch (e) {}
+  render(dead); save();
+  if (!keepGoing && tiles.some(t => t.v >= 2048)) $('win').style.display = 'flex';
+  else if (!movable()) { over = true; $('lscore').textContent = 'Счёт: ' + score; setTimeout(() => { $('lose').style.display = 'flex'; }, 350); }
+  return true;
+}
+function save() { try { localStorage.setItem('g2048', JSON.stringify({ s: snapshot(), keep: keepGoing, over })); } catch (e) {} }
+function newGame() {
+  els.forEach(e => e.remove()); els.clear(); tiles = []; score = 0; over = false; keepGoing = false; hist = null; nextId = 1;
+  $('lose').style.display = $('win').style.display = 'none'; spawn(); spawn(); render(); save();
+}
+$('undo').onclick = () => { if (hist) { restore(hist); hist = null; over = false; $('lose').style.display = 'none'; $('undo').disabled = true; save(); } };
+$('newg').onclick = $('again').onclick = $('again2').onclick = newGame;
+$('cont').onclick = () => { keepGoing = true; $('win').style.display = 'none'; save(); };
+const toMenu = () => { location.href = 'index.html'; };
+$('menu').onclick = toMenu; try { if (tg) { tg.BackButton.show(); tg.BackButton.onClick(toMenu); } } catch (e) {}
+
+// ----- управление: свайпы и стрелки -----
+let sx = 0, sy = 0, sd = false;
+addEventListener('pointerdown', e => { if (e.target.closest('button,.ov')) return; sx = e.clientX; sy = e.clientY; sd = true; });
+addEventListener('pointerup', e => {
+  if (!sd) return; sd = false; const dx = e.clientX - sx, dy = e.clientY - sy;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+  move(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 0 : 2) : (dy < 0 ? 1 : 3));
+});
+const KEYS = { ArrowLeft: 0, a: 0, ArrowUp: 1, w: 1, ArrowRight: 2, d: 2, ArrowDown: 3, s: 3 };
+addEventListener('keydown', e => { if (e.key in KEYS) { e.preventDefault(); move(KEYS[e.key]); } });
+addEventListener('resize', layout);
+
+layout();
+try {                                                  // продолжаем прошлую игру
+  const d = JSON.parse(localStorage.getItem('g2048'));
+  if (d && d.s && !d.over) { keepGoing = !!d.keep; restore(d.s); } else newGame();
+} catch (e) { newGame(); }
