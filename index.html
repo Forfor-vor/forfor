@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Игры</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+html,body{margin:0;min-height:100%;background:#12141f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+body{box-sizing:border-box;min-height:100vh;padding:calc(env(safe-area-inset-top,0px) + 56px) 14px calc(env(safe-area-inset-bottom,0px) + 24px);max-width:560px;margin:0 auto}
+header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+#ava{width:48px;height:48px;border-radius:50%;background:#2d3256 center/cover;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;flex:none}
+#hello{font-size:21px;font-weight:800}.sub{font-size:13px;opacity:.6}
+#resume{display:none;width:100%;border:0;border-radius:16px;padding:14px 16px;margin-bottom:14px;background:linear-gradient(90deg,#7cfc00,#2fbf5a);color:#0b1a0b;font:inherit;font-size:16px;font-weight:800;text-align:left}
+#tabs{display:flex;gap:8px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;border:0;border-radius:20px;padding:9px 16px;background:#232741;color:#cfd3ee;font:inherit;font-size:14px;font-weight:700}
+.tab.on{background:#fff;color:#12141f}
+#grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{position:relative;border:0;border-radius:20px;padding:0;color:#fff;text-align:left;overflow:hidden;box-shadow:0 8px 22px #0007;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;min-height:178px;display:flex;flex-direction:column}
+.card:active{transform:scale(.96)}
+.art{flex:1;display:flex;align-items:center;justify-content:center;font-size:56px;padding-top:14px}
+.txt{padding:10px 12px 12px;background:rgba(0,0,0,.36)}
+.txt b{display:block;font-size:17px}
+.txt span{display:block;font-size:12px;opacity:.85;margin-top:2px}
+.chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}
+.chip{font-size:11px;background:rgba(255,255,255,.18);border-radius:10px;padding:2px 7px}
+.stat{position:absolute;top:8px;left:8px;font-size:11px;font-weight:700;background:rgba(0,0,0,.5);border-radius:10px;padding:3px 8px}
+.empty{grid-column:1/-1;text-align:center;opacity:.5;padding:30px}
+.note{margin-top:18px;font-size:12px;opacity:.45;text-align:center}
+@media (max-width:340px){#grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div id="ava"></div><div><div id="hello">Привет!</div><div class="sub">Выбери игру</div></div></header>
+<button id="resume"></button>
+<div id="tabs"></div>
+<div id="grid"></div>
+<div class="note">Монеты в играх — игровые, не настоящие деньги</div>
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { try { tg.ready(); tg.expand(); tg.BackButton.hide(); } catch (e) {} }
+try {                                                  // ссылка-приглашение t.me/бот/games?startapp=arena_КОД сразу ведёт в комнату
+  const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || '';
+  if (/^arena_[A-Za-z0-9]{3,8}$/.test(sp) && !sessionStorage.getItem('sp_used')) { sessionStorage.setItem('sp_used', '1'); location.replace('arena.html?room=' + sp.slice(6).toUpperCase()); }
+} catch (e) {}
+const $ = id => document.getElementById(id);
+const ls = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const num = k => { const v = parseFloat(ls(k)); return v >= 0 ? v : 0; };
+
+// ---------- игроки ----------
+const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+$('hello').textContent = 'Привет, ' + ((user && user.first_name) || 'игрок') + '!';
+$('ava').textContent = ((user && user.first_name) || '🎮')[0].toUpperCase();
+if (user && user.photo_url) { const im = new Image(); im.onload = () => { $('ava').style.backgroundImage = 'url("' + user.photo_url + '")'; $('ava').textContent = ''; }; im.src = user.photo_url; }
+
+// ---------- список игр: чтобы добавить новую, допиши сюда одну строку ----------
+const TAGS = { solo: '👤 один', online: '🌐 с другом', top: '🏆 топ' };
+const GAMES = [
+  { id: 'arena',  url: 'arena.html',    t: 'Арена',          d: 'Дуэль на мечах: бот или друг',  e: '⚔️', g: 'linear-gradient(135deg,#050505,#2f6b00)', tags: ['solo', 'online', 'top'], stat: () => num('awins') ? 'Побед: ' + num('awins') : 'Новая' },
+  { id: 'mining', url: 'pickaxe.html', t: 'Майнинг',        d: 'Слот и кирка ломает блоки',     e: '⛏️', g: 'linear-gradient(135deg,#0b1030,#2b2f6b)', tags: ['solo'],                  stat: () => ls('mbal') === null ? '1000 монет' : Math.round(num('mbal') * 100) / 100 + ' монет' },
+  { id: 'stack',  url: 'stack.html',    t: 'Stack Block 3D', d: 'Собери самую высокую башню',    e: '🏗️', g: 'linear-gradient(135deg,#ff9a9a,#ff5f8d)', tags: ['solo', 'top'],           stat: () => num('best') ? 'Рекорд: ' + num('best') : 'Новая' },
+  { id: '2048',   url: 'game2048.html', t: '2048',           d: 'Складывай плитки до 2048',      e: '🔢', g: 'linear-gradient(135deg,#f5c542,#e0742f)', tags: ['solo'],                  stat: () => num('best2048') ? 'Рекорд: ' + num('best2048') : 'Новая' }
+];
+const TABS = [['all', 'Все'], ['solo', 'Одному'], ['online', 'С друзьями'], ['top', 'С топом']];
+let tab = ls('menuTab') || 'all';
+function go(g) { try { tg && tg.HapticFeedback.impactOccurred('light'); } catch (e) {} location.href = g.url; }
+function el(tag, cls, text) { const x = document.createElement(tag); if (cls) x.className = cls; if (text !== undefined) x.textContent = text; return x; }
+function render() {
+  $('tabs').innerHTML = '';
+  TABS.forEach(([k, n]) => { const b = el('button', 'tab' + (k === tab ? ' on' : ''), n); b.onclick = () => { tab = k; try { localStorage.setItem('menuTab', k); } catch (e) {} render(); }; $('tabs').append(b); });
+  $('grid').innerHTML = '';
+  const list = GAMES.filter(g => tab === 'all' || g.tags.includes(tab));
+  if (!list.length) $('grid').append(el('div', 'empty', 'Здесь пока пусто'));
+  list.forEach(g => {
+    const c = el('button', 'card'); c.style.background = g.g; c.onclick = () => go(g);
+    const art = el('div', 'art', g.e), txt = el('div', 'txt'), chips = el('div', 'chips');
+    g.tags.forEach(k => chips.append(el('span', 'chip', TAGS[k])));
+    txt.append(el('b', '', g.t), el('span', '', g.d), chips); c.append(art, txt, el('div', 'stat', g.stat()));
+    $('grid').append(c);
+  });
+}
+render();
+const last = GAMES.find(g => g.id === ls('lastGame'));
+if (last) { $('resume').style.display = 'block'; $('resume').textContent = '▶ Продолжить: ' + last.t; $('resume').onclick = () => go(last); }
+</script>
+</body>
+</html>

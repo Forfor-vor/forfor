@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>2048</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+html,body{margin:0;height:100%;background:#12141f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+body{display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 56px) 12px calc(env(safe-area-inset-bottom,0px) + 14px);box-sizing:border-box}
+#top{width:100%;max-width:460px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+h1{margin:0;font-size:46px;font-weight:900;color:#f5c542;letter-spacing:-1px}
+.box{background:#232741;border-radius:12px;padding:6px 14px;text-align:center;min-width:68px}
+.box small{display:block;font-size:11px;opacity:.65;text-transform:uppercase}.box b{font-size:21px}
+#bar{width:100%;max-width:460px;display:flex;gap:8px;margin:12px 0 14px}
+.btn{flex:1;border:0;border-radius:12px;background:#2d3256;color:#fff;font-size:15px;font-weight:700;padding:12px 6px}
+.btn:disabled{opacity:.35}
+#mute{flex:none;width:54px;font-size:18px}
+#board{position:relative;background:#232741;border-radius:16px;touch-action:none}
+.cell{position:absolute;background:#2d3256;border-radius:9px}
+.tile{position:absolute;left:0;top:0;display:flex;align-items:center;justify-content:center;border-radius:9px;font-weight:900;transition:transform .12s ease-in-out}
+.tile.new{animation:pop .2s}
+.tile.merge{animation:pulse .2s}
+@keyframes pop{from{opacity:0;scale:.3}to{opacity:1;scale:1}}
+@keyframes pulse{50%{scale:1.18}}
+#hint{margin-top:14px;font-size:13px;opacity:.55;text-align:center}
+#ov{position:fixed;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(10,12,22,.86);text-align:center;padding:24px}
+#ov h2{margin:0;font-size:36px}#ov p{margin:0;opacity:.75}
+#ov .btn{flex:none;min-width:200px;font-size:17px;padding:13px 20px}
+#ov .big{background:#f5c542;color:#1b1b1b}
+</style>
+</head>
+<body>
+<div id="top"><h1>2048</h1><div class="box"><small>Счёт</small><b id="score">0</b></div><div class="box"><small>Рекорд</small><b id="best">0</b></div></div>
+<div id="bar"><button class="btn" id="undo">↩ Отмена</button><button class="btn" id="again">↻ Новая</button><button class="btn" id="menuBtn">☰ Меню</button><button class="btn" id="mute">🔊</button></div>
+<div id="board"></div>
+<div id="hint">Двигай плитки пальцем: влево, вправо, вверх, вниз. Одинаковые числа складываются.</div>
+<div id="ov"><h2 id="ovT"></h2><p id="ovP"></p><button class="btn big" id="ovA"></button><button class="btn" id="ovB"></button></div>
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
+try { localStorage.setItem('lastGame', '2048'); } catch (e) {}
+const $ = id => document.getElementById(id), board = $('board'), N = 4;
+const COLORS = { 2: '#4a5080', 4: '#5b63a8', 8: '#e08a3c', 16: '#e5732f', 32: '#e55a3a', 64: '#e63a3a', 128: '#e8c23a', 256: '#e6b800', 512: '#d4a800', 1024: '#33c28a', 2048: '#22d3ee' };
+let tiles = [], score = 0, best = 0, nextId = 1, won = false, keep = false, undoSnap = null, busy = false, cell = 80, gap = 10, cells = [];
+try { best = +localStorage.getItem('best2048') || 0; } catch (e) {}
+// ---------- звук (синтез, без файлов) ----------
+let actx = null, muted = false;
+try { muted = localStorage.getItem('muted') === '1'; } catch (e) {}
+function unlock() { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {} }
+function tone(f, d, type, v, delay, to) {
+  if (muted || !actx) return; const t0 = actx.currentTime + (delay || 0), o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f, t0); if (to) o.frequency.exponentialRampToValueAtTime(to, t0 + d);
+  g.gain.setValueAtTime(v || .2, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + d); o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0 + d + .02);
+}
+function sfx(kind, v) {
+  if (kind === 'move') tone(200, .07, 'triangle', .12, 0, 120);
+  else if (kind === 'merge') { const f = 392 * Math.pow(2, (Math.log2(v || 4) - 2) * 2 / 12); tone(f, .14, 'sine', .22); tone(f * 1.5, .2, 'sine', .16, .06); }
+  else if (kind === 'undo') tone(500, .1, 'sine', .15, 0, 300);
+  else if (kind === 'win') [523, 659, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .22, i * .12));
+  else if (kind === 'over') { tone(300, .5, 'sawtooth', .16, 0, 70); tone(150, .6, 'square', .08, .1, 50); }
+}
+const hap = k => { try { tg && tg.HapticFeedback.impactOccurred(k); } catch (e) {} };
+
+// ---------- поле ----------
+for (let i = 0; i < 16; i++) { const c = document.createElement('div'); c.className = 'cell'; board.append(c); cells.push(c); }
+const pos = (r, c) => [gap + c * (cell + gap), gap + r * (cell + gap)];
+function paint(t) {
+  const el = t.el, d = String(t.v).length;
+  el.textContent = t.v; el.style.background = COLORS[t.v] || '#a855f7'; el.style.color = t.v >= 128 && t.v < 1024 ? '#1b1b1b' : '#fff';
+  el.style.width = el.style.height = cell + 'px'; el.style.fontSize = Math.round(cell * (d <= 2 ? .5 : d === 3 ? .42 : .34)) + 'px';
+}
+function place(t) { const [x, y] = pos(t.r, t.c); t.el.style.transform = 'translate(' + x + 'px,' + y + 'px)'; }
+function layout() {
+  const S = Math.max(240, Math.min(innerWidth - 24, innerHeight - 330, 460)); gap = Math.round(S * .025); cell = (S - gap * 5) / 4;
+  board.style.width = board.style.height = S + 'px';
+  cells.forEach((c, i) => { const [x, y] = pos(Math.floor(i / 4), i % 4); c.style.left = x + 'px'; c.style.top = y + 'px'; c.style.width = c.style.height = cell + 'px'; });
+  tiles.forEach(t => { paint(t); place(t); });
+}
+addEventListener('resize', layout);
+function addTile(r, c, v, isNew) {
+  const el = document.createElement('div'); el.className = 'tile' + (isNew ? ' new' : ''); board.append(el);
+  const t = { id: nextId++, r, c, v, el }; tiles.push(t); paint(t); place(t); return t;
+}
+function spawn() {
+  const used = new Set(tiles.map(t => t.r * 4 + t.c)), free = []; for (let i = 0; i < 16; i++) if (!used.has(i)) free.push(i);
+  if (!free.length) return; const i = free[Math.floor(Math.random() * free.length)]; addTile(Math.floor(i / 4), i % 4, Math.random() < .9 ? 2 : 4, true);
+}
+const snapshot = () => ({ tiles: tiles.map(t => ({ r: t.r, c: t.c, v: t.v })), score });
+function restore(s) {
+  tiles.forEach(t => t.el.remove()); tiles = []; s.tiles.forEach(t => addTile(t.r, t.c, t.v, false)); score = s.score; showScore();
+}
+function showScore() { $('score').textContent = score; $('best').textContent = best; $('undo').disabled = !undoSnap; }
+function save() {
+  try { localStorage.setItem('g2048', JSON.stringify({ s: snapshot(), won, keep })); if (score > best) { best = score; localStorage.setItem('best2048', best); } } catch (e) { if (score > best) best = score; }
+}
+
+// ---------- ход ----------
+function move(dir) {
+  if (busy) return false;
+  const snap = snapshot(), horiz = dir === 'left' || dir === 'right', lines = [[], [], [], []];
+  tiles.forEach(t => lines[horiz ? t.r : t.c].push(t));
+  const idx = t => dir === 'left' ? t.c : dir === 'right' ? 3 - t.c : dir === 'up' ? t.r : 3 - t.r;
+  const at = (line, i) => dir === 'left' ? [line, i] : dir === 'right' ? [line, 3 - i] : dir === 'up' ? [i, line] : [3 - i, line];
+  let moved = false, gained = 0; const dead = [], merged = [];
+  lines.forEach((arr, line) => {
+    arr.sort((a, b) => idx(a) - idx(b)); let i = 0, last = null;
+    arr.forEach(t => {
+      if (last && !last.merged && last.v === t.v) {
+        t.r = last.r; t.c = last.c; last.v *= 2; last.merged = true; gained += last.v; dead.push(t); merged.push(last); moved = true;
+      } else { const [r, c] = at(line, i++); if (t.r !== r || t.c !== c) moved = true; t.r = r; t.c = c; last = t; }
+    });
+  });
+  if (!moved) { tiles.forEach(t => t.merged = false); return false; }
+  undoSnap = snap; score += gained; busy = true; sfx('move');
+  tiles = tiles.filter(t => !dead.includes(t)); tiles.forEach(place); dead.forEach(place);
+  if (gained) hap('light');
+  setTimeout(() => {
+    dead.forEach(t => t.el.remove());
+    merged.forEach(t => { t.merged = false; paint(t); t.el.classList.remove('merge'); void t.el.offsetWidth; t.el.classList.add('merge'); });
+    if (merged.length) sfx('merge', Math.max(...merged.map(t => t.v)));
+    spawn(); busy = false; showScore(); save(); check(merged);
+  }, 130);
+  showScore(); return true;
+}
+function canMove() {
+  if (tiles.length < 16) return true;
+  const g = {}; tiles.forEach(t => g[t.r * 4 + t.c] = t.v);
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { const v = g[r * 4 + c]; if ((c < 3 && g[r * 4 + c + 1] === v) || (r < 3 && g[(r + 1) * 4 + c] === v)) return true; }
+  return false;
+}
+function overlay(title, text, a, aFn, b, bFn) {
+  $('ovT').textContent = title; $('ovP').textContent = text; $('ovA').textContent = a; $('ovA').onclick = aFn; $('ovB').textContent = b; $('ovB').onclick = bFn; $('ov').style.display = 'flex';
+}
+function check(merged) {
+  if (!won && !keep && tiles.some(t => t.v >= 2048)) { won = true; save(); sfx('win'); overlay('🎉 2048!', 'Ты собрал плитку 2048. Счёт: ' + score, 'Продолжить', () => { keep = true; $('ov').style.display = 'none'; save(); }, 'Новая игра', newGame); return; }
+  if (!canMove()) { sfx('over'); overlay('Игра окончена', 'Счёт: ' + score + (score >= best && score > 0 ? '\nНовый рекорд!' : ''), 'Играть снова', newGame, '☰ В меню', toMenu); }
+}
+function newGame() {
+  tiles.forEach(t => t.el.remove()); tiles = []; score = 0; won = keep = false; undoSnap = null; busy = false; $('ov').style.display = 'none';
+  spawn(); spawn(); showScore(); save();
+}
+function undo() { if (!undoSnap || busy) return; sfx('undo'); restore(undoSnap); undoSnap = null; $('ov').style.display = 'none'; showScore(); save(); }
+
+// ---------- ввод ----------
+let sx = 0, sy = 0, tracking = false;
+addEventListener('pointerdown', e => { unlock(); if (e.target.closest('button,#ov')) return; sx = e.clientX; sy = e.clientY; tracking = true; });
+addEventListener('pointerup', e => {
+  if (!tracking) return; tracking = false; const dx = e.clientX - sx, dy = e.clientY - sy;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+  move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+});
+addEventListener('pointercancel', () => { tracking = false; });
+const KEYS = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down' };
+addEventListener('keydown', e => { unlock(); const d = KEYS[e.key]; if (d) { e.preventDefault(); move(d); } });
+const toMenu = () => { location.href = 'index.html'; };
+const showMute = () => $('mute').textContent = muted ? '🔇' : '🔊';
+$('mute').onclick = () => { muted = !muted; try { localStorage.setItem('muted', muted ? '1' : '0'); } catch (e) {} showMute(); unlock(); if (!muted) sfx('merge', 8); };
+showMute();
+$('undo').onclick = undo; $('again').onclick = newGame; $('menuBtn').onclick = toMenu;
+try { if (tg) { tg.BackButton.show(); tg.BackButton.onClick(toMenu); } } catch (e) {}
+
+// ---------- запуск: продолжаем сохранённую игру ----------
+layout();
+try {
+  const sv = JSON.parse(localStorage.getItem('g2048'));
+  if (sv && sv.s && sv.s.tiles && sv.s.tiles.length) { restore(sv.s); won = !!sv.won; keep = !!sv.keep; showScore(); if (!canMove()) check([]); } else newGame();
+} catch (e) { newGame(); }
+</script>
+</body>
+</html>
