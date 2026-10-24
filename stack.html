@@ -43,6 +43,7 @@ canvas{display:block;width:100%;height:100%}
 </div>
 <div id="top"><h2>🏆 Топ 10</h2><ol id="list"></ol><p id="note"></p><p id="dbg" style="font-size:13px;opacity:.7"></p><button id="closeTop">Закрыть</button></div>
 <script>
+try { localStorage.setItem('lastGame', 'stack'); } catch (e) {}
 // ===== Настройки таблицы лидеров (Supabase) =====
 const SUPABASE_URL = "https://cwcrrqzguquuoabqdvvo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_W8LHPYxvc6Eya8QH97DHdA_mJRlCbsA";

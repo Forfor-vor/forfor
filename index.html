@@ -7,61 +7,82 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 html,body{margin:0;min-height:100%;background:#12141f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;-webkit-user-select:none;user-select:none;touch-action:manipulation}
-body{box-sizing:border-box;min-height:100vh;padding:calc(env(safe-area-inset-top,0px) + 64px) 18px calc(env(safe-area-inset-bottom,0px) + 24px);max-width:520px;margin:0 auto}
-h1{margin:0 0 4px;font-size:32px}
-.sub{margin:0 0 22px;opacity:.65}
-.card{display:block;width:100%;border:0;border-radius:22px;padding:0;margin-bottom:16px;color:#fff;text-align:left;overflow:hidden;box-shadow:0 8px 24px #0007;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s}
-.card:active{transform:scale(.97)}
-.art{height:132px;display:flex;align-items:flex-end;justify-content:center}
-.txt{padding:14px 18px 16px;background:rgba(0,0,0,.3)}
-.txt b{display:block;font-size:21px}
-.txt span{font-size:14px;opacity:.9}
-#c1{background:linear-gradient(135deg,#ff9a9a,#ff5f8d)}
-#c2{background:linear-gradient(135deg,#0b1030,#2b2f6b)}
-.st{display:flex;flex-direction:column;align-items:center}
-.st i{display:block;height:20px;border-radius:3px;box-shadow:inset 0 -4px 0 #0003,inset 0 3px 0 #fff4}
-.ore{display:flex;align-items:flex-end;gap:6px;margin-bottom:8px}
-.ore i{display:block;width:28px;height:34px;border-radius:4px;box-shadow:inset 0 -5px 0 #0003,inset 0 4px 0 #fff4}
-.pk{font-size:54px;margin-right:12px;line-height:1}
-.note{margin-top:8px;font-size:12px;opacity:.5;text-align:center}
-#c3{background:linear-gradient(135deg,#050505,#2f6b00)}
-.duel{display:flex;align-items:center;gap:14px;font-size:46px;margin-bottom:12px}
+body{box-sizing:border-box;min-height:100vh;padding:calc(env(safe-area-inset-top,0px) + 56px) 14px calc(env(safe-area-inset-bottom,0px) + 24px);max-width:560px;margin:0 auto}
+header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+#ava{width:48px;height:48px;border-radius:50%;background:#2d3256 center/cover;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;flex:none}
+#hello{font-size:21px;font-weight:800}.sub{font-size:13px;opacity:.6}
+#resume{display:none;width:100%;border:0;border-radius:16px;padding:14px 16px;margin-bottom:14px;background:linear-gradient(90deg,#7cfc00,#2fbf5a);color:#0b1a0b;font:inherit;font-size:16px;font-weight:800;text-align:left}
+#tabs{display:flex;gap:8px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;border:0;border-radius:20px;padding:9px 16px;background:#232741;color:#cfd3ee;font:inherit;font-size:14px;font-weight:700}
+.tab.on{background:#fff;color:#12141f}
+#grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{position:relative;border:0;border-radius:20px;padding:0;color:#fff;text-align:left;overflow:hidden;box-shadow:0 8px 22px #0007;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;min-height:178px;display:flex;flex-direction:column}
+.card:active{transform:scale(.96)}
+.art{flex:1;display:flex;align-items:center;justify-content:center;font-size:56px;padding-top:14px}
+.txt{padding:10px 12px 12px;background:rgba(0,0,0,.36)}
+.txt b{display:block;font-size:17px}
+.txt span{display:block;font-size:12px;opacity:.85;margin-top:2px}
+.chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}
+.chip{font-size:11px;background:rgba(255,255,255,.18);border-radius:10px;padding:2px 7px}
+.stat{position:absolute;top:8px;left:8px;font-size:11px;font-weight:700;background:rgba(0,0,0,.5);border-radius:10px;padding:3px 8px}
+.empty{grid-column:1/-1;text-align:center;opacity:.5;padding:30px}
+.note{margin-top:18px;font-size:12px;opacity:.45;text-align:center}
+@media (max-width:340px){#grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<h1>🎮 Игры</h1>
-<p class="sub">Выбери игру</p>
-
-<button class="card" id="c1" onclick="go('stack.html')">
-  <div class="art"><div class="st">
-    <i style="width:70px;background:#e8503a"></i><i style="width:96px;background:#e8803a"></i>
-    <i style="width:84px;background:#e8c23a"></i><i style="width:110px;background:#6fcf4a"></i>
-    <i style="width:100px;background:#3ac2e8"></i><i style="width:124px;background:#6a6ae8"></i>
-  </div></div>
-  <div class="txt"><b>Stack Block 3D</b><span id="s1"></span></div>
-</button>
-
-<button class="card" id="c2" onclick="go('pickaxe.html')">
-  <div class="art"><div class="pk">⛏️</div><div class="ore"><i style="background:#627eea"></i><i style="background:#8f2c3d"></i><i style="background:#26a17b"></i><i style="background:#f7a600"></i><i style="background:#2b9dff"></i></div></div>
-  <div class="txt"><b>Майнинг</b><span id="s2"></span></div>
-</button>
-
-<button class="card" id="c3" onclick="go('arena.html')">
-  <div class="art"><div class="duel"><span>🧑</span><span>⚔️</span><span>🤖</span></div></div>
-  <div class="txt"><b>Арена</b><span id="s3"></span></div>
-</button>
-
+<header><div id="ava"></div><div><div id="hello">Привет!</div><div class="sub">Выбери игру</div></div></header>
+<button id="resume"></button>
+<div id="tabs"></div>
+<div id="grid"></div>
 <div class="note">Монеты в играх — игровые, не настоящие деньги</div>
 <script>
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { try { tg.ready(); tg.expand(); tg.BackButton.hide(); } catch (e) {} }
-function go(url) { try { tg && tg.HapticFeedback.impactOccurred('light'); } catch (e) {} location.href = url; }
-let best = 0, bal = 1000;
-try { best = +localStorage.getItem('best') || 0; const b = parseFloat(localStorage.getItem('mbal')); if (b >= 0) bal = b; } catch (e) {}
-document.getElementById('s1').textContent = best ? 'Твой рекорд: ' + best : 'Собери самую высокую башню';
-let aw = 0; try { aw = +localStorage.getItem('awins') || 0; } catch (e) {}
-document.getElementById('s3').textContent = aw ? 'Твои победы: ' + aw : 'Дуэль на мечах 1 на 1';
-document.getElementById('s2').textContent = 'Баланс: ' + Math.round(bal * 100) / 100 + ' монет';
+try {                                                  // ссылка-приглашение t.me/бот/games?startapp=arena_КОД сразу ведёт в комнату
+  const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || '';
+  if (/^arena_[A-Za-z0-9]{3,8}$/.test(sp) && !sessionStorage.getItem('sp_used')) { sessionStorage.setItem('sp_used', '1'); location.replace('arena.html?room=' + sp.slice(6).toUpperCase()); }
+} catch (e) {}
+const $ = id => document.getElementById(id);
+const ls = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const num = k => { const v = parseFloat(ls(k)); return v >= 0 ? v : 0; };
+
+// ---------- игроки ----------
+const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+$('hello').textContent = 'Привет, ' + ((user && user.first_name) || 'игрок') + '!';
+$('ava').textContent = ((user && user.first_name) || '🎮')[0].toUpperCase();
+if (user && user.photo_url) { const im = new Image(); im.onload = () => { $('ava').style.backgroundImage = 'url("' + user.photo_url + '")'; $('ava').textContent = ''; }; im.src = user.photo_url; }
+
+// ---------- список игр: чтобы добавить новую, допиши сюда одну строку ----------
+const TAGS = { solo: '👤 один', online: '🌐 с другом', top: '🏆 топ' };
+const GAMES = [
+  { id: 'arena',  url: 'arena.html',    t: 'Арена',          d: 'Дуэль на мечах: бот или друг',  e: '⚔️', g: 'linear-gradient(135deg,#050505,#2f6b00)', tags: ['solo', 'online', 'top'], stat: () => num('awins') ? 'Побед: ' + num('awins') : 'Новая' },
+  { id: 'mining', url: 'pickaxe.html', t: 'Майнинг',        d: 'Слот и кирка ломает блоки',     e: '⛏️', g: 'linear-gradient(135deg,#0b1030,#2b2f6b)', tags: ['solo'],                  stat: () => ls('mbal') === null ? '1000 монет' : Math.round(num('mbal') * 100) / 100 + ' монет' },
+  { id: 'stack',  url: 'stack.html',    t: 'Stack Block 3D', d: 'Собери самую высокую башню',    e: '🏗️', g: 'linear-gradient(135deg,#ff9a9a,#ff5f8d)', tags: ['solo', 'top'],           stat: () => num('best') ? 'Рекорд: ' + num('best') : 'Новая' },
+  { id: '2048',   url: 'game2048.html', t: '2048',           d: 'Складывай плитки до 2048',      e: '🔢', g: 'linear-gradient(135deg,#f5c542,#e0742f)', tags: ['solo'],                  stat: () => num('best2048') ? 'Рекорд: ' + num('best2048') : 'Новая' }
+];
+const TABS = [['all', 'Все'], ['solo', 'Одному'], ['online', 'С друзьями'], ['top', 'С топом']];
+let tab = ls('menuTab') || 'all';
+function go(g) { try { tg && tg.HapticFeedback.impactOccurred('light'); } catch (e) {} location.href = g.url; }
+function el(tag, cls, text) { const x = document.createElement(tag); if (cls) x.className = cls; if (text !== undefined) x.textContent = text; return x; }
+function render() {
+  $('tabs').innerHTML = '';
+  TABS.forEach(([k, n]) => { const b = el('button', 'tab' + (k === tab ? ' on' : ''), n); b.onclick = () => { tab = k; try { localStorage.setItem('menuTab', k); } catch (e) {} render(); }; $('tabs').append(b); });
+  $('grid').innerHTML = '';
+  const list = GAMES.filter(g => tab === 'all' || g.tags.includes(tab));
+  if (!list.length) $('grid').append(el('div', 'empty', 'Здесь пока пусто'));
+  list.forEach(g => {
+    const c = el('button', 'card'); c.style.background = g.g; c.onclick = () => go(g);
+    const art = el('div', 'art', g.e), txt = el('div', 'txt'), chips = el('div', 'chips');
+    g.tags.forEach(k => chips.append(el('span', 'chip', TAGS[k])));
+    txt.append(el('b', '', g.t), el('span', '', g.d), chips); c.append(art, txt, el('div', 'stat', g.stat()));
+    $('grid').append(c);
+  });
+}
+render();
+const last = GAMES.find(g => g.id === ls('lastGame'));
+if (last) { $('resume').style.display = 'block'; $('resume').textContent = '▶ Продолжить: ' + last.t; $('resume').onclick = () => go(last); }
 </script>
 </body>
 </html>

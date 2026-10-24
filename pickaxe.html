@@ -33,6 +33,7 @@ button:disabled{opacity:.4}
   <div id="info"><div>БАЛАНС (игровые монеты)<b id="bal"></b></div><div style="text-align:right">СТАВКА<b id="bet"></b></div></div>
 </div>
 <script>
+try { localStorage.setItem('lastGame', 'mining'); } catch (e) {}
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
