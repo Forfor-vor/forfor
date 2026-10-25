@@ -7,20 +7,21 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
-html,body{margin:0;height:100%;overflow:hidden;background:linear-gradient(#ffb4b4,#ff9a9a);touch-action:manipulation;user-select:none;-webkit-user-select:none;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+:root{--top:calc(max(env(safe-area-inset-top,0px),var(--tg-safe-area-inset-top,0px)) + var(--tg-content-safe-area-inset-top,0px));--bottom:max(env(safe-area-inset-bottom,0px),var(--tg-safe-area-inset-bottom,0px))}
+html,body{overscroll-behavior:none;margin:0;height:100%;overflow:hidden;background:linear-gradient(#ffb4b4,#ff9a9a);touch-action:manipulation;user-select:none;-webkit-user-select:none;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
 canvas{display:block;width:100%;height:100%}
 #ui{position:fixed;inset:0;pointer-events:none;text-align:center;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.2)}
-#score{margin-top:calc(env(safe-area-inset-top,0px) + 70px);font-size:64px;font-weight:700;line-height:1}
+#score{margin-top:calc(var(--top) + 70px);font-size:64px;font-weight:700;line-height:1}
 #msg{font-size:26px;font-weight:600;margin-top:10px;opacity:0;transition:opacity .25s}
-#best{position:absolute;right:16px;top:calc(env(safe-area-inset-top,0px) + 60px);font-size:16px;opacity:.9}
+#best{position:absolute;right:16px;top:calc(var(--top) + 60px);font-size:16px;opacity:.9}
 #over{position:absolute;left:0;right:0;top:38%;display:none}
 #over b{font-size:34px;display:block}
 #over span{font-size:18px;opacity:.9}
 #topBtn,#muteBtn,#menuBtn{position:absolute;left:16px;pointer-events:auto;background:rgba(255,255,255,.3);color:#fff;border:0;border-radius:12px;padding:8px 14px;font-size:16px;font-weight:600}
-#menuBtn{top:calc(env(safe-area-inset-top,0px) + 56px)}
-#topBtn{top:calc(env(safe-area-inset-top,0px) + 106px)}
-#muteBtn{top:calc(env(safe-area-inset-top,0px) + 156px)}
-#top{position:fixed;inset:0;z-index:5;display:none;background:rgba(20,20,30,.88);color:#fff;padding:calc(env(safe-area-inset-top,0px) + 60px) 20px 20px;box-sizing:border-box;overflow:auto}
+#menuBtn{top:calc(var(--top) + 56px)}
+#topBtn{top:calc(var(--top) + 106px)}
+#muteBtn{top:calc(var(--top) + 156px)}
+#top{position:fixed;inset:0;z-index:5;display:none;background:rgba(20,20,30,.88);color:#fff;padding:calc(var(--top) + 60px) 20px 20px;box-sizing:border-box;overflow:auto}
 #top h2{margin:0 0 16px;text-align:center}
 #top ol{padding:0;margin:0;list-style:none}
 #top li{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:10px;margin-bottom:6px;background:rgba(255,255,255,.08);font-size:18px}
@@ -49,7 +50,7 @@ const SUPABASE_URL = "https://cwcrrqzguquuoabqdvvo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_W8LHPYxvc6Eya8QH97DHdA_mJRlCbsA";
 // ================================================
 const tg = window.Telegram && window.Telegram.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
+if (tg) { tg.ready(); tg.expand(); try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); if (tg.requestFullscreen && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0') && !tg.isFullscreen) tg.requestFullscreen(); tg.setHeaderColor && tg.setHeaderColor('#ff9a9a'); tg.setBackgroundColor && tg.setBackgroundColor('#ff9a9a'); } catch (e) {} }
 
 // ===== Настройки игры =====
 const START_SPEED = 5;     // начальная скорость блока (единиц в секунду)

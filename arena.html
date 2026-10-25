@@ -7,8 +7,9 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
 <style>
-html,body{margin:0;height:100%;background:#000;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
-body{display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 50px) 0 calc(env(safe-area-inset-bottom,0px) + 12px);box-sizing:border-box}
+:root{--top:calc(max(env(safe-area-inset-top,0px),var(--tg-safe-area-inset-top,0px)) + var(--tg-content-safe-area-inset-top,0px));--bottom:max(env(safe-area-inset-bottom,0px),var(--tg-safe-area-inset-bottom,0px))}
+html,body{overscroll-behavior:none;margin:0;height:100%;background:#000;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+body{display:flex;flex-direction:column;align-items:center;padding:calc(var(--top) + 50px) 0 calc(var(--bottom) + 12px);box-sizing:border-box}
 #head{display:flex;align-items:flex-start;justify-content:center;gap:22px;height:150px}
 .side{text-align:center;width:90px}
 .av{width:76px;height:76px;border-radius:50%;margin:0 auto;background:#222 center/cover;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;border:3px solid}
@@ -25,7 +26,7 @@ canvas{display:block;border-radius:6px}
 .btn{border:0;border-radius:12px;background:#262626;color:#fff;font-size:15px;font-weight:600;padding:9px 16px}
 .ov{position:fixed;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.88);text-align:center;padding:24px;box-sizing:border-box;gap:12px;overflow:auto;touch-action:pan-y}
 .ov h2{margin:0;font-size:30px}.ov p{margin:0;opacity:.75;max-width:320px;font-size:15px}
-.row{display:flex;gap:8px}.btn.sel{background:#3a7d00;box-shadow:0 0 0 2px #7CFC00 inset}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.btn.sel{background:#3a7d00;box-shadow:0 0 0 2px #7CFC00 inset}
 .big{background:#7CFC00;color:#111;font-size:18px;padding:12px 34px}
 #top ol{list-style:none;padding:0;margin:0;width:100%;max-width:340px}
 #top li{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:10px;margin-bottom:6px;background:rgba(255,255,255,.08);font-size:18px;text-align:left}
@@ -33,6 +34,18 @@ canvas{display:block;border-radius:6px}
 #top li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #pad{position:relative;width:130px;height:130px;border-radius:50%;background:radial-gradient(#2c2c2c,#101010);border:3px solid #4a4a4a;margin:4px 0 8px;touch-action:none}
 #knob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:#7CFC00;box-shadow:0 0 14px #7CFC0099;pointer-events:none}
+.tabs{display:flex;background:#1a1a1a;border-radius:14px;padding:4px;gap:4px;width:100%;max-width:340px}
+.tab{flex:1;border:0;border-radius:10px;background:transparent;color:#bbb;font-size:15px;font-weight:700;padding:11px 8px}
+.tab.sel{background:#7CFC00;color:#111}
+.pane{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%}
+details{max-width:320px;font-size:14px;opacity:.85}summary{cursor:pointer;opacity:.8}
+#start{justify-content:flex-start;padding-top:calc(var(--top) + 60px)}
+.mode{width:100%;max-width:340px;background:#141414;border:1px solid #2c2c2c;border-radius:18px;padding:14px;box-sizing:border-box;display:flex;flex-direction:column;gap:10px}
+.mh{font-size:19px;font-weight:800;text-align:left}
+.seg{display:flex;background:#0b0b0b;border-radius:12px;padding:3px}
+.segb{flex:1;border:0;border-radius:10px;background:transparent;color:#bbb;font-size:13px;font-weight:700;padding:9px 2px}
+.segb.sel{background:#3a7d00;color:#fff;box-shadow:0 0 0 2px #7CFC00 inset}
+.mode p{font-size:13px;text-align:left}
 </style>
 </head>
 <body>
@@ -48,11 +61,18 @@ canvas{display:block;border-radius:6px}
 
 <div class="ov" id="start" style="display:flex">
   <h2>⚔️ Арена</h2>
-  <p>Крути джойстик внизу: шарик едет с разгоном и инерцией. Мечи крутятся сами, касание меча отнимает 1 здоровье. Через 10 секунд стены начинают сходиться. Побеждает последний выживший.</p>
-  <div class="row" id="diffs"></div><p id="dnote"></p>
-  <button class="btn big" id="go">🤖 Играть с ботом</button>
-  <p>или с другом:</p>
-  <div class="row"><button class="btn" id="mkRoom">👥 Создать комнату</button><button class="btn" id="joinRoom">🔑 Войти по коду</button></div>
+  <p>Джойстик внизу, меч крутится сам, касание меча отнимает 1 здоровье. Через 10 секунд стены сходятся. Побеждает последний выживший.</p>
+  <div class="mode">
+    <div class="mh">🤖 Против бота</div>
+    <div class="seg" id="diffs"></div><p id="dnote"></p>
+    <button class="btn big" id="go">Играть</button>
+  </div>
+  <div class="mode">
+    <div class="mh">👥 С другом</div>
+    <p>Создай комнату и отправь другу ссылку-приглашение, или войди по коду.</p>
+    <div class="row"><button class="btn" id="mkRoom">Создать комнату</button><button class="btn" id="joinRoom">Войти по коду</button></div>
+  </div>
+  <button class="btn" id="startBack">← В меню</button>
 </div>
 <div class="ov" id="room">
   <h2 id="roomTitle">Комната</h2><div id="roomCode"></div><p id="roomMsg"></p>
@@ -75,6 +95,7 @@ canvas{display:block;border-radius:6px}
   <button class="btn big" id="closeTop" style="font-size:16px;padding:10px 28px">Закрыть</button>
 </div>
 <script>
+try { localStorage.setItem('lastGame', 'arena'); } catch (e) {}
 // ===== Сервер и таблицы (Supabase) =====
 const SUPABASE_URL = "https://cwcrrqzguquuoabqdvvo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_W8LHPYxvc6Eya8QH97DHdA_mJRlCbsA";
@@ -83,12 +104,14 @@ const APP_NAME = "games";                     // короткое имя Mini Ap
 // ===== Настройки игры =====
 const A = 400, WALL = 16, R = 22, SWORD = 74, HP0 = 10, INV = .8, PSPEED = 230, ACC = 4, SHRINK_AT = 10, SHRINK_FOR = 30, SHRINK_MAX = 64;   // арена, отступ стены, радиус бойца, длина меча, здоровье, неуязвимость после удара, скорость игрока
 const PLAYER_SPIN = 5;                             // скорость вращения твоего меча (радиан в секунду)
-const DIFFS = [                                      // botSpin — скорость вращения меча бота: чем сложнее режим, тем быстрее
-  { n: 'Лёгкий',   speed: 110, botSpin: 3.5, count: false, note: 'Меч бота медленный. Тренировка: победы не идут в топ' },
-  { n: 'Средний',  speed: 170, botSpin: 5,   count: true,  note: 'Меч бота крутится как твой. Победы идут в топ' },
-  { n: 'Сложный',  speed: 230, botSpin: 7,   count: true,  note: 'Меч бота быстрее твоего, сам бот шустрее. Победы идут в топ' }];
+const DIFFS = [                                      // botSpin — скорость меча бота (чем сложнее, тем быстрее); speed/acc — скорость и разгон бота; react — как часто бот «думает» (сек)
+  { n: 'Лёгкий',  appr: .3,  speed: 110, acc: 4,   botSpin: 3.5, react: .4,  steps: 3, horizon: .18, noise: 45, dodgeW: .4,  atkW: .6,  wallW: .3,  engage: 95, count: false, note: 'Медленный меч, бот часто ошибается. Тренировка: победы не идут в топ' },
+  { n: 'Средний', appr: .1,  speed: 150, acc: 4.5, botSpin: 4.5, react: .25, steps: 4, horizon: .26, noise: 18, dodgeW: .6,  atkW: .7,  wallW: .45, engage: 92, count: true,  note: 'Бот уклоняется от твоего меча. Победы идут в топ' },
+  { n: 'Сложный', appr: .09, speed: 165, acc: 4.8, botSpin: 5.5, react: .22, steps: 5, horizon: .28, noise: 15, dodgeW: .7,  atkW: .75, wallW: .5,  engage: 91, count: true,  note: 'Быстрый меч, бот предсказывает твои движения. Победы идут в топ' },
+  { n: 'Кошмар',  appr: .07, speed: 185, acc: 5.4, botSpin: 7,   react: .16, steps: 6, horizon: .34, noise: 12, dodgeW: .85, atkW: .9,  wallW: .8,  engage: 88, count: true,  note: 'Лучший ИИ: считает бой на шаги вперёд, почти непобедим' }];
+// steps/horizon — сколько шагов и секунд вперёд бот просчитывает, noise — случайные ошибки, dodgeW/atkW — насколько бот боится ударов и хочет бить, wallW — боится стен, engage — желаемая дистанция, appr — как сильно бот стремится сблизиться
 const tg = window.Telegram && window.Telegram.WebApp;
-if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
+if (tg) { try { tg.ready(); tg.expand(); try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); if (tg.requestFullscreen && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0') && !tg.isFullscreen) tg.requestFullscreen(); tg.setHeaderColor && tg.setHeaderColor('#000000'); tg.setBackgroundColor && tg.setBackgroundColor('#000000'); } catch (e) {} } catch (e) {} }
 const $ = id => document.getElementById(id);
 const cv = $('c'), ctx = cv.getContext('2d');
 
@@ -132,14 +155,15 @@ addEventListener('resize', resize); resize();
 
 // ---------- состояние ----------
 let mode = 'bot';                                    // bot — против бота, host — создатель комнаты (считает бой), guest — гость
-let diff = 1, state = 'menu', P, B, t = 0, freeze = 0, joy = { x: 0, y: 0 }, texts = [], sparks = [], clashCd = 0, clashN = 0, orbitDir = 1, orbitT = 0, totalWins = 0, dbg = '';
+let diff = 1, state = 'menu', P, B, t = 0, freeze = 0, joy = { x: 0, y: 0 }, texts = [], sparks = [], clashCd = 0, clashN = 0, totalWins = 0, dbg = '';
 const mk = (x, y, ang, w) => ({ x, y, vx: 0, vy: 0, hp: HP0, ang, w, inv: 0, flash: 0 });
 const me = () => mode === 'guest' ? B : P, opp = () => mode === 'guest' ? P : B;
 const hpUi = () => { $('hpL').textContent = me().hp; $('hpR').textContent = opp().hp; };
+let aiT = 0, aiJ = { x: 0, y: 0 };
 function resetFighters() {
   const botSpin = mode === 'bot' ? DIFFS[diff].botSpin : PLAYER_SPIN;           // против бота меч бота зависит от сложности
   P = mk(A * .3, A * .7, -Math.PI / 4, PLAYER_SPIN); B = mk(A * .7, A * .3, Math.PI * .75, -botSpin);
-  t = 0; texts = []; sparks = []; clashCd = 0; clashN = 0; hpUi();
+  t = 0; texts = []; sparks = []; clashCd = 0; clashN = 0; aiT = 0; aiJ = { x: 0, y: 0 }; hpUi();
 }
 const fmt = s => { s = Math.floor(s); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 const show = id => { ['start', 'room', 'join', 'end'].forEach(i => $(i).style.display = i === id ? 'flex' : 'none'); };
@@ -158,7 +182,8 @@ function segSeg(a, b) {
   }
   return Math.min(pSeg(x1, y1, x3, y3, x4, y4), pSeg(x2, y2, x3, y3, x4, y4), pSeg(x3, y3, x1, y1, x2, y2), pSeg(x4, y4, x1, y1, x2, y2));
 }
-const wallNow = () => WALL + Math.min(1, Math.max(0, (t - SHRINK_AT) / SHRINK_FOR)) * SHRINK_MAX;   // стены сходятся после SHRINK_AT секунд
+const wallAt = tt => WALL + Math.min(1, Math.max(0, (tt - SHRINK_AT) / SHRINK_FOR)) * SHRINK_MAX;   // стены сходятся после SHRINK_AT секунд
+const wallNow = () => wallAt(t);
 function seg(f) { const c = Math.cos(f.ang), s = Math.sin(f.ang); return [f.x + c * (R + 2), f.y + s * (R + 2), f.x + c * (R + SWORD), f.y + s * (R + SWORD)]; }
 
 // ---------- логика боя (её считает бот-режим или хозяин комнаты) ----------
@@ -166,12 +191,46 @@ function steer(f, j, dt) {                       // джойстик задаё�
   const m = Math.hypot(j.x, j.y), sc = m > 1 ? 1 / m : 1, k = Math.min(1, dt * ACC);
   f.vx += (j.x * sc * PSPEED - f.vx) * k; f.vy += (j.y * sc * PSPEED - f.vy) * k;
 }
+// ИИ: перебирает варианты движения (16 направлений × 2 скорости + стоять), для каждого прогнозирует бой на horizon секунд
+// (положения, вращение мечей, стены) в двух сценариях поведения соперника и выбирает вариант с лучшей оценкой.
+const CANDS = [{ x: 0, y: 0 }]; for (let i = 0; i < 16; i++) { const a = i * Math.PI / 8; CANDS.push({ x: Math.cos(a), y: Math.sin(a) }, { x: Math.cos(a) * .5, y: Math.sin(a) * .5 }); }
+function plan(S, E, d, prev) {                       // S — кто решает, E — соперник, d — параметры, prev — прошлое решение
+  const boost = 1 + Math.min(1, t / 60), n = d.steps, dt = d.horizon / n, kb = Math.min(1, dt * d.acc), kp = Math.min(1, dt * ACC);
+  let best = -1e9, bj = CANDS[0];
+  for (const c of CANDS) {
+    let total = 0;
+    for (let sc = 0; sc < 2; sc++) {                 // сценарий 0: соперник едет по инерции, сценарий 1: бросается на нас
+      let bx = S.x, by = S.y, bvx = S.vx, bvy = S.vy, px = E.x, py = E.y, pvx = E.vx, pvy = E.vy, s = 0;
+      for (let k = 1; k <= n; k++) {
+        const tau = k * dt;
+        bvx += (c.x * d.speed - bvx) * kb; bvy += (c.y * d.speed - bvy) * kb; bx += bvx * dt; by += bvy * dt;
+        if (sc) { const dx = bx - px, dy = by - py, l = Math.hypot(dx, dy) || 1; pvx += (dx / l * PSPEED * .8 - pvx) * kp; pvy += (dy / l * PSPEED * .8 - pvy) * kp; }
+        else { pvx *= 1 - dt * .8; pvy *= 1 - dt * .8; }
+        px += pvx * dt; py += pvy * dt;
+        const w = wallAt(t + tau), lo = w + R, hi = A - w - R;
+        bx = Math.min(hi, Math.max(lo, bx)); by = Math.min(hi, Math.max(lo, by)); px = Math.min(hi, Math.max(lo, px)); py = Math.min(hi, Math.max(lo, py));
+        const ea = E.ang + E.w * boost * tau, sa = S.ang + S.w * boost * tau, disc = 1 - .5 * tau / d.horizon;
+        if (S.inv - tau <= 0) {                      // опасность: меч соперника рядом с нами
+          const dd = pSeg(bx, by, px + Math.cos(ea) * (R + 2), py + Math.sin(ea) * (R + 2), px + Math.cos(ea) * (R + SWORD), py + Math.sin(ea) * (R + SWORD));
+          s -= dd < R + 2 ? 100 * d.dodgeW * disc : dd < R + 14 ? 15 * d.dodgeW * disc * (R + 14 - dd) / 12 : 0;
+        }
+        if (E.inv - tau <= 0) {                      // возможность: наш меч рядом с соперником
+          const dd = pSeg(px, py, bx + Math.cos(sa) * (R + 2), by + Math.sin(sa) * (R + 2), bx + Math.cos(sa) * (R + SWORD), by + Math.sin(sa) * (R + SWORD));
+          s += dd < R + 2 ? 100 * d.atkW * disc : dd < R + 14 ? 10 * d.atkW * disc * (R + 14 - dd) / 12 : 0;
+        }
+        s -= Math.abs(Math.hypot(bx - px, by - py) - d.engage) * d.appr;          // держим боевую дистанцию
+        const gap = Math.min(bx, by, A - bx, A - by) - w - R; if (gap < 30) s -= (30 - gap) * .5 * d.wallW;   // не лезем в угол
+      }
+      total += s * (sc ? .4 : .6);
+    }
+    total += Math.random() * d.noise + (prev && c.x === prev.x && c.y === prev.y ? 2 : 0);
+    if (total > best) { best = total; bj = c; }
+  }
+  return bj;
+}
 function ai(dt, d) {
-  orbitT -= dt; if (orbitT <= 0) { orbitDir = Math.random() < .5 ? -1 : 1; orbitT = 1 + Math.random() * 1.5; }
-  const dx = P.x - B.x, dy = P.y - B.y, dist = Math.hypot(dx, dy) || 1, nx = dx / dist, ny = dy / dist;
-  const radial = Math.max(-1, Math.min(1, (dist - (SWORD * .9 + R)) / 60));
-  const ax = nx * radial - ny * orbitDir * .7, ay = ny * radial + nx * orbitDir * .7, l = Math.hypot(ax, ay) || 1, k = Math.min(1, dt * 5);
-  B.vx += (ax / l * d.speed - B.vx) * k; B.vy += (ay / l * d.speed - B.vy) * k;
+  aiT -= dt; if (aiT <= 0) { aiT = d.react; aiJ = plan(B, P, d, aiJ); }
+  const k = Math.min(1, dt * d.acc); B.vx += (aiJ.x * d.speed - B.vx) * k; B.vy += (aiJ.y * d.speed - B.vy) * k;
 }
 function tryHit(att, def) {
   if (def.inv > 0) return;
@@ -239,7 +298,7 @@ function startBot() {
 let client = null, ch = null, room = '', peer = null, remoteJoy = { x: 0, y: 0 }, rxAt = 0, snap = null, snapAt = 0, snapT = 0, wantRe = false, peerRe = false, waitTimer = null;
 const sid = Math.random().toString(36).slice(2, 8);
 const genCode = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(''); };
-const inviteLink = () => APP_NAME ? 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME + '?startapp=arena_' + room : 'https://t.me/' + BOT_USERNAME + '?start=arena_' + room;
+const inviteLink = () => APP_NAME ? 'https://t.me/' + BOT_USERNAME + '/' + APP_NAME + '?startapp=arena_' + room + '&mode=fullscreen' : 'https://t.me/' + BOT_USERNAME + '?start=arena_' + room;
 const flip = r => r === 'win' ? 'lose' : r === 'lose' ? 'win' : r;
 const roomMsg = x => { $('roomMsg').textContent = x; };
 function send(o) { if (!ch) return; try { const p = ch.send({ type: 'broadcast', event: 'm', payload: { ...o, from: sid } }); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
@@ -414,11 +473,16 @@ async function openTop() {
 
 // ---------- кнопки ----------
 DIFFS.forEach((d, i) => {
-  const b = document.createElement('button'); b.className = 'btn' + (i === diff ? ' sel' : ''); b.textContent = d.n;
-  b.onclick = () => { diff = i; [...$('diffs').children].forEach((x, j) => x.className = 'btn' + (j === i ? ' sel' : '')); $('dnote').textContent = d.note; };
+  const b = document.createElement('button'); b.className = 'segb' + (i === diff ? ' sel' : ''); b.textContent = d.n;
+  b.onclick = () => { diff = i; [...$('diffs').children].forEach((x, j) => x.className = 'segb' + (j === i ? ' sel' : '')); $('dnote').textContent = d.note; };
   $('diffs').append(b);
 });
 $('dnote').textContent = DIFFS[diff].note;
+$('startBack').onclick = () => toMenu();
+const setTab = n => { $('tabBot').className = 'tab' + (n === 'bot' ? ' sel' : ''); $('tabFr').className = 'tab' + (n === 'fr' ? ' sel' : ''); $('paneBot').style.display = n === 'bot' ? '' : 'none'; $('paneFr').style.display = n === 'fr' ? '' : 'none'; try { localStorage.setItem('arenaTab', n); } catch (e) {} };
+$('tabBot').onclick = () => setTab('bot'); $('tabFr').onclick = () => setTab('fr');
+try { if (localStorage.getItem('arenaTab') === 'fr') setTab('fr'); } catch (e) {}
+{ const qm = new URLSearchParams(location.search).get('mode'); if (qm === 'friend') setTab('fr'); else if (qm === 'bot') setTab('bot'); }   // из меню: ?mode=bot / ?mode=friend
 $('go').onclick = startBot;
 $('again').onclick = () => mode === 'bot' ? startBot() : rematch();
 $('mkRoom').onclick = createRoom;
